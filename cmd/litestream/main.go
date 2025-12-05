@@ -212,16 +212,7 @@ func (c *Config) propagateGlobalSettings() {
 
 // DefaultConfig returns a new instance of Config with defaults set.
 func DefaultConfig() Config {
-	return Config{
-		Levels: []*CompactionLevelConfig{
-			{Interval: 5 * time.Minute},
-			{Interval: 1 * time.Hour},
-		},
-		Snapshot: SnapshotConfig{
-			Interval:  24 * time.Hour,
-			Retention: 24 * time.Hour,
-		},
-	}
+	return Config{}
 }
 
 // CompactionLevels returns a full list of compaction levels include L0.
@@ -328,7 +319,8 @@ func ReadConfigFile(filename string, expandEnv bool) (_ Config, err error) {
 
 // CompactionLevelConfig the configuration for a single level of compaction.
 type CompactionLevelConfig struct {
-	Interval time.Duration `yaml:"interval"`
+	Interval  time.Duration `yaml:"interval"`
+	Retention time.Duration `yaml:"retention"`
 }
 
 // DBConfig represents the configuration for a single database.
