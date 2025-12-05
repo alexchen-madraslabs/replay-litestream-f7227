@@ -212,16 +212,7 @@ func (c *Config) propagateGlobalSettings() {
 
 // DefaultConfig returns a new instance of Config with defaults set.
 func DefaultConfig() Config {
-	return Config{
-		Levels: []*CompactionLevelConfig{
-			{Interval: 5 * time.Minute},
-			{Interval: 1 * time.Hour},
-		},
-		Snapshot: SnapshotConfig{
-			Interval:  24 * time.Hour,
-			Retention: 24 * time.Hour,
-		},
-	}
+	return Config{}
 }
 
 // CompactionLevels returns a full list of compaction levels include L0.
@@ -232,8 +223,9 @@ func (c *Config) CompactionLevels() litestream.CompactionLevels {
 
 	for i, lvl := range c.Levels {
 		levels = append(levels, &litestream.CompactionLevel{
-			Level:    i + 1,
-			Interval: lvl.Interval,
+			Level:     i + 1,
+			Interval:  lvl.Interval,
+			Retention: lvl.Retention,
 		})
 	}
 
@@ -328,7 +320,8 @@ func ReadConfigFile(filename string, expandEnv bool) (_ Config, err error) {
 
 // CompactionLevelConfig the configuration for a single level of compaction.
 type CompactionLevelConfig struct {
-	Interval time.Duration `yaml:"interval"`
+	Interval  time.Duration `yaml:"interval"`
+	Retention time.Duration `yaml:"retention"`
 }
 
 // DBConfig represents the configuration for a single database.
@@ -404,12 +397,14 @@ func NewDBFromConfig(dbc *DBConfig) (*litestream.DB, error) {
 
 // ReplicaConfig represents the configuration for a single replica in a database.
 type ReplicaConfig struct {
-	Type               string         `yaml:"type"` // "file", "s3"
-	Name               string         `yaml:"name"` // Deprecated
-	Path               string         `yaml:"path"`
-	URL                string         `yaml:"url"`
-	SyncInterval       *time.Duration `yaml:"sync-interval"`
-	ValidationInterval *time.Duration `yaml:"validation-interval"`
+	Type                   string         `yaml:"type"` // "file", "s3"
+	Name                   string         `yaml:"name"` // Deprecated
+	Path                   string         `yaml:"path"`
+	URL                    string         `yaml:"url"`
+	Retention              *time.Duration `yaml:"retention"`
+	RetentionCheckInterval *time.Duration `yaml:"retention-check-interval"`
+	SyncInterval           *time.Duration `yaml:"sync-interval"`
+	ValidationInterval     *time.Duration `yaml:"validation-interval"`
 
 	// S3 settings
 	AccessKeyID     string `yaml:"access-key-id"`
@@ -446,8 +441,17 @@ func NewReplicaFromConfig(c *ReplicaConfig, db *litestream.DB) (_ *litestream.Re
 
 	// Build replica.
 	r := litestream.NewReplica(db)
+	if v := c.Retention; v != nil {
+		r.Retention = *v
+	}
+	if v := c.RetentionCheckInterval; v != nil {
+		r.RetentionCheckInterval = *v
+	}
 	if v := c.SyncInterval; v != nil {
 		r.SyncInterval = *v
+	}
+	if v := c.ValidationInterval; v != nil {
+		r.ValidationInterval = *v
 	}
 	for _, str := range c.Age.Identities {
 		identities, err := age.ParseIdentities(strings.NewReader(str))
